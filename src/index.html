@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#04080f">
+  <meta name="description" content="J.A.R.V.I.S. — голосовой ассистент в браузере: время, YouTube, поиск и голосовые команды.">
+  <title>J.A.R.V.I.S. — голосовой ассистент</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="backdrop" aria-hidden="true">
+    <div class="grid-lines"></div>
+    <div class="glow glow--one"></div>
+    <div class="glow glow--two"></div>
+    <div class="scanline"></div>
+  </div>
+
+  <main id="jarvis-app" class="app" data-ready="false">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 64 64" role="img">
+            <path d="M32 3 57 17v30L32 61 7 47V17Z" fill="none" stroke="currentColor" stroke-width="1.6"/>
+            <path d="M32 11 50 21v22L32 53 14 43V21Z" fill="none" stroke="currentColor" stroke-width=".8" opacity=".55"/>
+            <circle cx="32" cy="32" r="7.5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+            <circle cx="32" cy="32" r="2.6" fill="currentColor"/>
+          </svg>
+        </span>
+        <span class="brand-text">
+          <span class="brand-title">J.A.R.V.I.S.</span>
+          <span class="brand-sub">Just A Rather Very Intelligent System</span>
+        </span>
+      </div>
+
+      <div class="clock-block">
+        <time id="clock" class="clock">--:--:--</time>
+        <span id="date" class="date">—</span>
+      </div>
+
+      <div class="status-cluster">
+        <span class="status-pill"><i class="dot dot--online"></i> СИСТЕМА ОНЛАЙН</span>
+        <span id="voice-status" class="status-sub">СИНТЕЗ · RU</span>
+      </div>
+    </header>
+
+    <section class="grid">
+      <aside class="panel systems" aria-label="Состояние систем">
+        <div class="panel-head">
+          <h2>СИСТЕМЫ</h2>
+          <span class="panel-tag">04 / 04</span>
+        </div>
+
+        <ul class="system-list">
+          <li class="system-row">
+            <span class="system-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M4 10v4M8 7v10M12 4v16M16 7v10M20 10v4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+            </span>
+            <span class="system-text"><b>Синтез речи</b><small>Web Speech · ru-RU</small></span>
+            <span class="system-state is-ok">АКТИВЕН</span>
+          </li>
+          <li class="system-row">
+            <span class="system-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3Z" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M8.5 21h7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+            </span>
+            <span class="system-text"><b>Распознавание</b><small>SpeechRecognition</small></span>
+            <span class="system-state is-ok" id="recognition-state">ГОТОВО</span>
+          </li>
+          <li class="system-row">
+            <span class="system-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M8 12h8M12 8v8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+            </span>
+            <span class="system-text"><b>Микрофон</b><small>Web Speech API</small></span>
+            <span class="system-state is-idle" id="mic-state">ОЖИДАНИЕ</span>
+          </li>
+          <li class="system-row">
+            <span class="system-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M3.5 12h17M12 3.5c2.4 2.3 3.6 5.1 3.6 8.5s-1.2 6.2-3.6 8.5M12 3.5C9.6 5.8 8.4 8.6 8.4 12s1.2 6.2 3.6 8.5" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+            </span>
+            <span class="system-text"><b>Сеть</b><small>Google · YouTube</small></span>
+            <span class="system-state is-ok">ОНЛАЙН</span>
+          </li>
+        </ul>
+
+        <div class="panel-divider"></div>
+
+        <div class="profile">
+          <span class="avatar" aria-hidden="true">С</span>
+          <span class="profile-text"><b>СЭР</b><small>Владелец системы</small></span>
+          <span class="profile-badge">SESSION</span>
+        </div>
+
+        <div class="meter-block">
+          <div class="meter-label"><span>ЯДРО</span><span id="uptime">00:00:00</span></div>
+          <div class="meter"><span id="core-meter"></span></div>
+        </div>
+      </aside>
+
+      <section class="core" aria-label="Голосовой ассистент">
+        <div class="core-topline">
+          <span>ИНТЕРФЕЙС</span>
+          <span class="core-line"></span>
+          <span>MARK II</span>
+        </div>
+
+        <div class="reactor-wrap">
+          <div class="reactor" id="reactor" data-state="idle">
+            <span class="ring ring--outer"></span>
+            <span class="ring ring--dash"></span>
+            <span class="ring ring--ticks"></span>
+            <span class="ring ring--arc"></span>
+            <span class="ring ring--inner"></span>
+            <span class="reactor-core"><span>J</span></span>
+            <span class="orbit orbit--one"></span>
+            <span class="orbit orbit--two"></span>
+          </div>
+        </div>
+
+        <p class="greeting"><span id="greeting-prefix">Добрый день,</span> <span class="accent">сэр.</span></p>
+        <p class="subline" id="subline">Системы активированы. Чем я могу помочь?</p>
+
+        <button class="mic" id="mic-button" type="button" aria-label="Сказать команду">
+          <span class="mic-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M12 3.2a3.1 3.1 0 0 1 3.1 3.1v5.9a3.1 3.1 0 0 1-6.2 0V6.3A3.1 3.1 0 0 1 12 3.2Z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M5.4 11.4a6.6 6.6 0 0 0 13.2 0M12 18v3M8.7 21h6.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </span>
+          <span class="mic-label" id="mic-label">СКАЗАТЬ КОМАНДУ</span>
+          <span class="mic-bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+        </button>
+
+        <form class="command-form" id="command-form" autocomplete="off">
+          <label class="sr-only" for="command-input">Текстовая команда</label>
+          <input id="command-input" name="command" type="text" placeholder="Или введите команду, сэр..." maxlength="200">
+          <button type="submit" aria-label="Отправить команду">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </form>
+
+        <div class="chips" id="chips" aria-label="Быстрые команды">
+          <button type="button" data-command="время">время</button>
+          <button type="button" data-command="открой youtube">открой youtube</button>
+          <button type="button" data-command="открой браузер">открой браузер</button>
+          <button type="button" data-command="поиск">поиск</button>
+          <button type="button" data-command="отбой">отбой</button>
+        </div>
+
+        <p class="hint" id="hint">Нажмите микрофон или введите команду. Голосовой ввод работает в Chromium.</p>
+      </section>
+
+      <aside class="panel log" aria-label="Журнал команд">
+        <div class="panel-head">
+          <h2>ЖУРНАЛ</h2>
+          <span class="panel-tag" id="log-count">00</span>
+        </div>
+        <ol class="log-list" id="log-list" aria-live="polite"></ol>
+        <div class="log-footer">
+          <span class="log-pulse"></span>
+          <span id="log-status">ПРОТОКОЛ ВЕДЁТСЯ</span>
+        </div>
+      </aside>
+    </section>
+
+    <footer class="footer">
+      <span>J.A.R.V.I.S. OS · v2.1.0</span>
+      <span class="footer-center">СИСТЕМЫ СТАБИЛЬНЫ · КАНАЛ ЗАЩИЩЁН</span>
+      <span>RU · 24 / 7</span>
+    </footer>
+
+    <div class="shutdown" id="shutdown" hidden>
+      <div class="shutdown-card">
+        <span class="shutdown-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M12 3v8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M7 5.8a8 8 0 1 0 10 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </span>
+        <p class="shutdown-title">СИСТЕМЫ ОТКЛЮЧЕНЫ</p>
+        <p class="shutdown-sub">Хорошего дня, сэр. Ядро переведено в режим ожидания.</p>
+        <button type="button" id="restart-button">АКТИВИРОВАТЬ СНОВА</button>
+      </div>
+    </div>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
