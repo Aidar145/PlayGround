@@ -1,3 +1,8 @@
+import { Capacitor } from '@capacitor/core'
+import { SpeechRecognition as NativeSpeech } from '@capacitor-community/speech-recognition'
+import { TextToSpeech as NativeTts } from '@capacitor-community/text-to-speech'
+import { Browser } from '@capacitor/browser'
+
 const app = document.getElementById('jarvis-app')
 const clockEl = document.getElementById('clock')
 const dateEl = document.getElementById('date')
@@ -21,10 +26,12 @@ const restartButton = document.getElementById('restart-button')
 const shutdownEl = document.getElementById('shutdown')
 
 const synth = 'speechSynthesis' in window ? window.speechSynthesis : null
-const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+const WebSpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+const isNative = Capacitor.isNativePlatform()
 const startedAt = Date.now()
 
 let recognition = null
+let recognitionReady = false
 let listening = false
 let searchMode = false
 let spokenCount = 0
@@ -112,6 +119,17 @@ function speak(text) {
   spokenCount += 1
   addLog(`Джарвис: ${text}`, 'voice')
   setSubline(text)
+
+  if (isNative) {
+    voiceStatus.textContent = 'СИНТЕЗ · ANDROID TTS'
+    NativeTts.stop().catch(() => {})
+    NativeTts.speak({ text, lang: 'ru-RU', rate: 0.95, pitch: 0.9, volume: 1 })
+      .catch(() => {
+        voiceStatus.textContent = 'СИНТЕЗ · ОШИБКА'
+      })
+    return
+  }
+
   if (!synth) {
     voiceStatus.textContent = 'СИНТЕЗ · НЕДОСТУПЕН'
     return
@@ -142,6 +160,18 @@ function clearSublineAfter(text, delay = 4200) {
   }, delay)
 }
 
+async function openExternal(url) {
+  if (isNative) {
+    try {
+      await Browser.open({ url })
+      return
+    } catch (error) {
+      addLog(`Не удалось открыть ссылку: ${error?.message || error}`, 'warn')
+    }
+  }
+  window.open(url, '_blank', 'noopener')
+}
+
 function runSearch(query) {
   resetSearchMode()
   if (!query) {
@@ -150,21 +180,21 @@ function runSearch(query) {
   }
   addLog(`Поиск: ${query}`, 'action')
   speak(`Ищу ${query}`)
-  try {
-    window.open(`https://www.google.com/search?q=${encodeURIComponent(query)}`, '_blank', 'noopener')
-  } catch {
-    addLog('Браузер заблокировал переход. Разрешите всплывающие окна.', 'warn')
-  }
+  openExternal(`https://www.google.com/search?q=${encodeURIComponent(query)}`)
   clearSublineAfter(`Ищу ${query}`)
 }
 
 function shutdown() {
   speak('Отключаюсь. Хорошего дня, сэр.')
-  if (recognition && listening) {
-    try {
-      recognition.stop()
-    } catch {
-      listening = false
+  if (listening) {
+    if (isNative) {
+      NativeSpeech.stop().catch(() => {})
+    } else if (recognition) {
+      try {
+        recognition.stop()
+      } catch {
+        listening = false
+      }
     }
   }
   setMicState('ОТКЛЮЧЕН', 'off')
@@ -210,7 +240,7 @@ function processCommand(raw) {
   if (lower.includes('youtube') || lower.includes('ютуб')) {
     speak('Открываю YouTube')
     addLog('Запуск: youtube.com', 'action')
-    window.open('https://www.youtube.com', '_blank', 'noopener')
+    openExternal('https://www.youtube.com')
     clearSublineAfter('Открываю YouTube')
     return
   }
@@ -218,7 +248,7 @@ function processCommand(raw) {
   if (lower.includes('браузер') || lower.includes('гугл') || lower.includes('google')) {
     speak('Открываю Google')
     addLog('Запуск: google.com', 'action')
-    window.open('https://www.google.com', '_blank', 'noopener')
+    openExternal('https://www.google.com')
     clearSublineAfter('Открываю Google')
     return
   }
@@ -246,8 +276,82 @@ function setListening(value) {
   setRecognitionState(value ? 'СЛУШАЮ' : 'ГОТОВО', value ? 'live' : 'ok')
 }
 
+async function setupNativeRecognition() {
+  try {
+    const { available } = await NativeSpeech.available()
+    if (!available) {
+      voiceStatus.textContent = 'ТЕКСТОВЫЙ РЕЖИМ'
+      setRecognitionState('НЕДОСТУПНО', 'off')
+      setMicState('ТЕКСТ', 'idle')
+      setHint('Распознавание речи недоступно на устройстве. Введите команду в поле ниже.')
+      return
+    }
+  } catch {
+    voiceStatus.textContent = 'ТЕКСТОВЫЙ РЕЖИМ'
+    setRecognitionState('НЕДОСТУПНО', 'off')
+    setMicState('ТЕКСТ', 'idle')
+    setHint('Распознавание речи недоступно. Введите команду в поле ниже.')
+    return
+  }
+
+  recognitionReady = true
+  NativeSpeech.addListener('listeningState', ({ status }) => {
+    setListening(status === 'started')
+  })
+  NativeSpeech.addListener('partialResults', ({ matches }) => {
+    const transcript = matches?.[0]
+    if (!transcript) return
+    NativeSpeech.stop().catch(() => {})
+    setListening(false)
+    processCommand(transcript)
+  })
+}
+
+async function startNativeListening() {
+  try {
+    let permission = await NativeSpeech.checkPermissions()
+    if (permission.speechRecognition !== 'granted') {
+      permission = await NativeSpeech.requestPermissions()
+    }
+    if (permission.speechRecognition !== 'granted') {
+      setRecognitionState('НЕТ ДОСТУПА', 'off')
+      setMicState('ТЕКСТ', 'idle')
+      setHint('Доступ к микрофону запрещён. Разрешите его в настройках приложения или введите команду.')
+      addLog('Микрофон недоступен: нет разрешения.', 'warn')
+      return
+    }
+
+    setListening(true)
+    setHint('Слушаю вас, сэр...')
+    const result = await NativeSpeech.start({
+      language: 'ru-RU',
+      maxResults: 1,
+      prompt: 'Слушаю вас, сэр...',
+      partialResults: false,
+      popup: false
+    })
+    setListening(false)
+    const transcript = result?.matches?.[0]
+    if (transcript) {
+      processCommand(transcript)
+    } else {
+      addLog('Речь не обнаружена. Повторите, пожалуйста.', 'warn')
+      setHint('Речь не обнаружена. Нажмите микрофон и попробуйте снова.')
+    }
+  } catch (error) {
+    setListening(false)
+    addLog(`Ошибка распознавания: ${error?.message || error}`, 'warn')
+    setHint('Не удалось распознать речь. Введите команду в поле ниже.')
+  }
+}
+
 function setupRecognition() {
-  if (!SpeechRecognition) {
+  if (isNative) {
+    setupNativeRecognition()
+    return
+  }
+
+  if (!WebSpeechRecognition) {
     voiceStatus.textContent = 'ТЕКСТОВЫЙ РЕЖИМ'
     setRecognitionState('НЕДОСТУПНО', 'off')
     setMicState('ТЕКСТ', 'idle')
@@ -255,7 +359,7 @@ function setupRecognition() {
     return
   }
 
-  recognition = new SpeechRecognition()
+  recognition = new WebSpeechRecognition()
   recognition.lang = 'ru-RU'
   recognition.continuous = false
   recognition.interimResults = false
@@ -293,10 +397,26 @@ function setupRecognition() {
   }
 
   recognition.onend = () => setListening(false)
+  recognitionReady = true
 }
 
 function toggleListening() {
-  if (!recognition) {
+  if (isNative) {
+    if (!recognitionReady) {
+      commandInput.focus()
+      setHint('Голосовой ввод недоступен. Введите команду в поле ниже.')
+      return
+    }
+    if (listening) {
+      NativeSpeech.stop().catch(() => {})
+      setListening(false)
+      return
+    }
+    startNativeListening()
+    return
+  }
+
+  if (!recognitionReady) {
     commandInput.focus()
     setHint('Голосовой ввод недоступен. Введите команду в поле ниже.')
     return
@@ -319,7 +439,7 @@ function toggleListening() {
 function seedLog() {
   const now = Date.now()
   addLog('Загрузка ядра J.A.R.V.I.S. · MARK II', 'ok', formatTime(new Date(now - 14000)))
-  addLog('Синтез речи: Web Speech API · ru-RU', 'info', formatTime(new Date(now - 9000)))
+  addLog(isNative ? 'Синтез речи: Android TTS · ru-RU' : 'Синтез речи: Web Speech API · ru-RU', 'info', formatTime(new Date(now - 9000)))
   addLog('Микрофон переведён в режим ожидания', 'info', formatTime(new Date(now - 5000)))
   addLog('Системы активированы. Чем я могу помочь?', 'voice', formatTime(new Date(now - 1000)))
 }
@@ -332,8 +452,16 @@ function init() {
   seedLog()
   setupRecognition()
 
-  if (!synth) voiceStatus.textContent = 'СИНТЕЗ · НЕДОСТУПЕН'
-  if (synth) synth.addEventListener?.('voiceschanged', () => selectRussianVoice())
+  if (isNative) {
+    document.getElementById('tts-detail').textContent = 'Android TTS · ru-RU'
+    document.getElementById('stt-detail').textContent = 'Android SpeechRecognizer'
+    document.getElementById('mic-detail').textContent = 'RECORD_AUDIO'
+    voiceStatus.textContent = 'СИНТЕЗ · ANDROID TTS'
+    setHint('Нажмите микрофон или введите команду.')
+  }
+
+  if (!isNative && !synth) voiceStatus.textContent = 'СИНТЕЗ · НЕДОСТУПЕН'
+  if (!isNative && synth) synth.addEventListener?.('voiceschanged', () => selectRussianVoice())
 
   micButton.addEventListener('click', toggleListening)
   commandForm.addEventListener('submit', event => {

@@ -16,3 +16,11 @@ screenshots/
 .opencode-web/
 
 node_modules/
+.icon-tmp/
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+*.keystore
+keystore.properties
+

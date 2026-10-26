@@ -1,0 +1,9 @@
+{
+  "appId": "com.aidar145.jarvis",
+  "appName": "J.A.R.V.I.S.",
+  "webDir": "dist",
+  "android": {
+    "backgroundColor": "#04080f",
+    "allowMixedContent": false
+  }
+}
