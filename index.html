@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="theme-color" content="#79b84a">
+  <meta name="description" content="A tiny voxel sandbox built with Three.js. Explore, mine and build in a blocky world.">
+  <title>Minecraft 3D — Voxel Sandbox</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%235b9b36'/%3E%3Crect x='4' y='10' width='24' height='18' fill='%238a5b32'/%3E%3Crect x='4' y='10' width='24' height='5' fill='%236bb444'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="loading">
+  <canvas id="game" aria-label="Minecraft 3D game view"></canvas>
+  <div id="vignette"></div>
+  <div id="water-overlay"></div>
+
+  <div id="hud" class="hidden">
+    <div id="stats">
+      <span id="stat-fps">0 FPS</span>
+      <span id="stat-pos">X 0  Y 0  Z 0</span>
+    </div>
+    <div id="crosshair" aria-hidden="true"><i></i><i></i></div>
+    <div id="hotbar">
+      <div id="slot-name">Grass Block</div>
+      <div id="slots"></div>
+    </div>
+  </div>
+
+  <div id="touch" aria-hidden="true">
+    <div id="joystick"><div id="joystick-knob"></div></div>
+    <div id="touch-actions">
+      <button id="touch-jump" type="button">JUMP</button>
+      <button id="touch-break" type="button">BREAK</button>
+      <button id="touch-place" type="button">PLACE</button>
+    </div>
+  </div>
+
+  <div id="boot" class="overlay">
+    <div class="boot-content">
+      <div class="logo-wrap">
+        <div class="logo">MINECRAFT<span class="logo-3d">3D</span></div>
+        <div class="logo-shadow">MINECRAFT<span>3D</span></div>
+      </div>
+      <p class="tagline">A tiny voxel world, built with Three.js</p>
+      <div id="progress"><div id="progress-bar"></div></div>
+      <p id="boot-status">Generating terrain, trees and flowers…</p>
+      <button id="play" type="button" disabled>Play</button>
+      <button id="new-start" class="link-button" type="button">New World</button>
+      <div class="controls-grid">
+        <div><kbd>W A S D</kbd><span>Move</span></div>
+        <div><kbd>Mouse</kbd><span>Look around</span></div>
+        <div><kbd>Space</kbd><span>Jump / swim</span></div>
+        <div><kbd>Shift</kbd><span>Sprint</span></div>
+        <div><kbd>Left click</kbd><span>Break block</span></div>
+        <div><kbd>Right click</kbd><span>Place block</span></div>
+        <div><kbd>1 – 9</kbd><span>Choose block</span></div>
+        <div><kbd>Scroll</kbd><span>Cycle blocks</span></div>
+        <div><kbd>F</kbd><span>Toggle flight</span></div>
+        <div><kbd>Esc</kbd><span>Pause</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="pause" class="overlay hidden">
+    <div class="pause-panel">
+      <h2>Game Paused</h2>
+      <button id="resume" class="mc-button" type="button">Resume</button>
+      <button id="save" class="mc-button" type="button">Save World</button>
+      <button id="new-world" class="mc-button warn" type="button">New World</button>
+      <div class="settings">
+        <label><input id="opt-shadows" type="checkbox" checked> Shadows</label>
+        <label><input id="opt-sound" type="checkbox" checked> Sound</label>
+        <button id="fullscreen" class="small-button" type="button">Fullscreen</button>
+      </div>
+      <p class="pause-help">WASD move · Space jump · Shift sprint · F fly · 1–9 blocks · Wheel select<br>Left click breaks · Right click places · Esc pauses</p>
+    </div>
+  </div>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
